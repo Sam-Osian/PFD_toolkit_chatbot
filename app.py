@@ -1,7 +1,6 @@
 from openai import OpenAI
 import streamlit as st
 
-# --- PFD-Toolkit System Prompt ---
 SYSTEM_PROMPT = """
 You are the 'PFD Toolkit Research Assistant', a specialist AI built for the University of Liverpool M-RIC conference. Your job is to help researchers, policy professionals, and students understand how Prevention of Future Death (PFD) reports—and the PFD Toolkit software—can support their work.
 
@@ -16,11 +15,11 @@ Here’s what you should know and always communicate when relevant:
 - The public system for PFDs is messy: many reports are only available as PDFs or even scanned images; information is inconsistently recorded; category tags are often missing or wrong.
 - This makes large-scale or systematic research using PFDs difficult, slow, and sometimes impossible for those without advanced technical skills.
 
-**What is the PFD Toolkit?**  
-- PFD Toolkit is a Python package (developed at the University of Liverpool) designed to unlock access to PFD reports for research and policy.
+**What is the PFD-Toolkit?**  
+- PFD-Toolkit is a Python package (developed at the University of Liverpool) designed to unlock access to PFD reports for research and policy.
 - It is *in development* and has not yet been released.
 - It automates the process of collecting, cleaning, and categorising PFD reports from the judiciary.uk website.  
-- The toolkit uses a mix of traditional web scraping, PDF/image processing, and advanced AI (LLMs) using OCR to extract structured data even from messy or scanned documents.
+- The toolkit uses a mix of traditional web scraping, PDF/image processing, and advanced AI (LLMs) to extract structured data even from messy or scanned documents.
 - Researchers can use pre-processed datasets or run custom scrapes.
 - It dramatically reduces the time and technical skill required to do meaningful research with PFDs, making it easier to spot trends (e.g., increases in medication errors), identify neglected issues, or analyse themes across sectors.
 - The toolkit is open and reproducible, supporting both bespoke and routine analyses.
@@ -38,14 +37,9 @@ If you are ever asked what the PFD Toolkit is, or why it's needed, always give t
 
 Start every conversation with a quick, friendly invitation for the user to describe their research so you can help.
 
-Be concise in your responses. The user will likely be using this on a phone in a busy conference, and won't want to read long text.
-
-When reasonable, finish your responses with a question that links to a feature of the toolkit (e.g. the custom categorisation feature).
-
 """
 
-# --- Streamlit UI ---
-st.set_page_config(page_title="PFD Toolkit Chatbot", page_icon="💬")
+st.set_page_config(page_title="PFD-Toolkit Chatbot", page_icon="💬")
 st.title("PFD-Toolkit: Research Assistant 🤖")
 st.caption("Powered by GPT-4.1-mini | University of Liverpool M-RIC")
 st.markdown(
@@ -61,7 +55,7 @@ st.markdown(
     """
 )
 with st.sidebar:
-    st.markdown("### About the PFD Toolkit")
+    st.markdown("### About the PFD-Toolkit")
     st.write(
         "PFD-Toolkit is a University of Liverpool M-RIC project. It unlocks access to coroners’ Prevention of Future Death reports for research, policy, and practice. "
         "The toolkit provides regularly updated, cleaned datasets and smart tools for analysing this unique public resource."
@@ -69,13 +63,12 @@ with st.sidebar:
     st.info("**Add your OpenAI API key below to start.**")
     openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
     st.markdown("[Get an OpenAI API key](https://platform.openai.com/account/api-keys)")
-    st.markdown("[View project GitHub](https://github.com/)")
+    st.markdown("[View project GitHub](https://github.com/your-github/PFD-Toolkit)")
     st.markdown("[University of Liverpool M-RIC](https://www.liverpool.ac.uk/mric/)")
 
     if st.button("Reset conversation"):
         st.session_state["messages"] = []
 
-# --- Conversation memory ---
 if "messages" not in st.session_state or not st.session_state["messages"]:
     st.session_state["messages"] = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -92,16 +85,22 @@ if prompt := st.chat_input("Type your message here…"):
     client = OpenAI(api_key=openai_api_key)
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
+    assistant_placeholder = st.chat_message("assistant").empty()
     try:
-        response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+        stream = client.chat.completions.create(
+            model="gpt-4-1106-preview",
             messages=st.session_state.messages,
             max_tokens=800,
             temperature=0.7,
-            stream=True
+            stream=True,
         )
-        msg = response.choices[0].message.content
+        msg = ""
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                msg += delta.content
+                assistant_placeholder.markdown(msg)
     except Exception as e:
         msg = f"Sorry, I ran into a technical problem: {e}"
+        assistant_placeholder.write(msg)
     st.session_state.messages.append({"role": "assistant", "content": msg})
-    st.chat_message("assistant").write(msg)
